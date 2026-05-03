@@ -5,6 +5,7 @@ export const projectAPI = {
   list: () => api.get('/projects'),
   getById: (id) => api.get(`/projects/${id}`),
   update: (id, data) => api.put(`/projects/${id}`, data),
+  delete: (id) => api.delete(`/projects/${id}`),
   addMember: (projectId, data) => api.post(`/projects/${projectId}/members`, data),
   removeMember: (projectId, memberId) => api.delete(`/projects/${projectId}/members/${memberId}`),
 };

@@ -118,9 +118,9 @@ const Dashboard = () => {
             ) : (
               projects.map(project => (
                 <ProjectCard 
-                  key={project.id} 
+                  key={project._id} 
                   project={project}
-                  onNavigate={() => navigate(`/project/${project.id}`)}
+                  onNavigate={() => navigate(`/project/${project._id}`)}
                 />
               ))
             )}

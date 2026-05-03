@@ -10,8 +10,7 @@ const ProjectCard = ({ project, onNavigate }) => {
       </div>
       <p className="project-description">{project.description || 'No description'}</p>
       <div className="project-footer">
-        <span className="member-count">👥 {project.members?.length || 0} members</span>
-        <span className="task-count">📝 {project.tasks?.length || 0} tasks</span>
+        <span className="project-admin">👤 Admin</span>
       </div>
     </div>
   );

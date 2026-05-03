@@ -4,10 +4,9 @@ export const ROLES = {
 };
 
 export const TASK_STATUS = {
-  TODO: 'todo',
-  IN_PROGRESS: 'in_progress',
+  PENDING: 'pending',
+  IN_PROGRESS: 'in-progress',
   COMPLETED: 'completed',
-  OVERDUE: 'overdue',
 };
 
 export const TASK_PRIORITY = {

@@ -66,7 +66,33 @@ const ProjectDetail = () => {
     }
   };
 
-  const isAdmin = project?.adminId === user?.id;
+  const handleDeleteProject = async () => {
+    if (confirm('Delete this project? This cannot be undone.')) {
+      try {
+        await projectAPI.delete(projectId);
+        navigate('/dashboard');
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to delete project');
+      }
+    }
+  };
+
+  const getMemberId = (member) => {
+    if (!member) return null;
+    if (member.userId?._id) return member.userId._id.toString();
+    if (member.userId) return member.userId.toString();
+    if (member.user?._id) return member.user._id.toString();
+    return member.user?.toString();
+  };
+
+  const isAdmin = project?.adminId?._id === user?.id || project?.adminId === user?.id;
+  const isMember = project?.members?.some((member) => getMemberId(member) === user?.id);
+  const canCreateTask = isAdmin || isMember;
+
+  const canManageTask = (task) => {
+    if (!task) return false;
+    return isAdmin || task.createdBy === user?.id || task.createdBy?._id === user?.id;
+  };
 
   if (loading) return <div className="loading">Loading...</div>;
   if (!project) return <div className="error-message">Project not found</div>;
@@ -84,7 +110,7 @@ const ProjectDetail = () => {
           <div className="tasks-section">
             <div className="section-header">
               <h2>Tasks</h2>
-              {isAdmin && (
+              {canCreateTask && (
                 <button 
                   onClick={() => setShowNewTask(!showNewTask)}
                   className="btn-primary"
@@ -157,7 +183,7 @@ const ProjectDetail = () => {
                 <p className="no-tasks">No tasks yet</p>
               ) : (
                 tasks.map(task => (
-                  <div key={task.id} className={`task-item ${task.status}`}>
+                  <div key={task._id} className={`task-item ${task.status}`}>
                     <div className="task-content">
                       <h4>{task.title}</h4>
                       <p>{task.description}</p>
@@ -169,19 +195,19 @@ const ProjectDetail = () => {
                         {task.dueDate && <span className="due-date">📅 {new Date(task.dueDate).toLocaleDateString()}</span>}
                       </div>
                     </div>
-                    {isAdmin && (
+                    {canManageTask(task) && (
                       <div className="task-actions">
                         <select
                           value={task.status}
-                          onChange={(e) => handleUpdateTask(task.id, { status: e.target.value })}
+                          onChange={(e) => handleUpdateTask(task._id, { status: e.target.value })}
                           className="status-select"
                         >
-                          <option value="todo">To Do</option>
-                          <option value="in_progress">In Progress</option>
+                          <option value="pending">To Do</option>
+                          <option value="in-progress">In Progress</option>
                           <option value="completed">Completed</option>
                         </select>
                         <button
-                          onClick={() => handleDeleteTask(task.id)}
+                          onClick={() => handleDeleteTask(task._id)}
                           className="btn-delete"
                         >
                           Delete
@@ -199,15 +225,18 @@ const ProjectDetail = () => {
           <div className="team-section">
             <h3>Team Members</h3>
             <div className="members-list">
-              {project.members?.map(member => (
-                <div key={member.userId} className="member-item">
-                  <div>
-                    <p className="member-name">{member.user.name}</p>
-                    <p className="member-email">{member.user.email}</p>
+              {project.members?.map(member => {
+                const memberUser = member.userId || member.user;
+                return (
+                  <div key={member._id || member.userId} className="member-item">
+                    <div>
+                      <p className="member-name">{memberUser?.name || 'Unknown'}</p>
+                      <p className="member-email">{memberUser?.email || 'Unknown'}</p>
+                    </div>
+                    <span className={`member-role ${member.role}`}>{member.role}</span>
                   </div>
-                  <span className={`member-role ${member.role}`}>{member.role}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -215,11 +244,11 @@ const ProjectDetail = () => {
             <h3>Statistics</h3>
             <div className="stats-grid">
               <div className="stat-card">
-                <span className="stat-value">{tasks.filter(t => t.status === 'todo').length}</span>
+                <span className="stat-value">{tasks.filter(t => t.status === 'pending').length}</span>
                 <span className="stat-label">To Do</span>
               </div>
               <div className="stat-card">
-                <span className="stat-value">{tasks.filter(t => t.status === 'in_progress').length}</span>
+                <span className="stat-value">{tasks.filter(t => t.status === 'in-progress').length}</span>
                 <span className="stat-label">In Progress</span>
               </div>
               <div className="stat-card">
@@ -227,6 +256,13 @@ const ProjectDetail = () => {
                 <span className="stat-label">Completed</span>
               </div>
             </div>
+            {isAdmin && (
+              <div className="delete-project-footer">
+                <button onClick={handleDeleteProject} className="btn-danger">
+                  Delete Project
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { Task, Project, ProjectMember } from '../models/index.js';
-import { Op } from 'sequelize';
+import mongoose from 'mongoose';
 
 export const createTask = async (req, res, next) => {
   try {
@@ -9,17 +9,22 @@ export const createTask = async (req, res, next) => {
       return res.status(400).json({ message: 'Title and project ID are required' });
     }
 
-    const project = await Project.findByPk(projectId);
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({ message: 'Invalid project ID' });
+    }
+
+    const project = await Project.findById(projectId);
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
     // Check authorization
     const isProjectMember = await ProjectMember.findOne({
-      where: { projectId, userId: req.user.id },
+      projectId, 
+      userId: req.user.id,
     });
 
-    if (project.adminId !== req.user.id && !isProjectMember) {
+    if (project.adminId.toString() !== req.user.id && !isProjectMember) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -45,31 +50,27 @@ export const createTask = async (req, res, next) => {
 export const getTasks = async (req, res, next) => {
   try {
     const { projectId } = req.query;
-    const where = {};
+    const query = {};
 
     if (projectId) {
-      where.projectId = projectId;
+      if (!mongoose.Types.ObjectId.isValid(projectId)) {
+        return res.status(400).json({ message: 'Invalid project ID' });
+      }
+      query.projectId = projectId;
     }
 
-    const tasks = await Task.findAll({
-      where,
-      include: [
-        {
-          association: 'assignee',
-          attributes: ['id', 'name', 'email'],
-        },
-        {
-          association: 'creator',
-          attributes: ['id', 'name', 'email'],
-        },
-        {
-          association: 'project',
-          attributes: ['id', 'name'],
-        },
-      ],
-    });
+    const tasks = await Task.find(query)
+      .populate('assignedTo', 'id name email')
+      .populate('createdBy', 'id name email')
+      .populate('projectId', 'id name')
+      .lean();
 
-    res.status(200).json({ tasks });
+    const tasksWithId = tasks.map(task => ({
+      ...task,
+      id: task._id.toString(),
+    }));
+
+    res.status(200).json({ tasks: tasksWithId });
   } catch (error) {
     next(error);
   }
@@ -79,27 +80,21 @@ export const getTaskById = async (req, res, next) => {
   try {
     const { taskId } = req.params;
 
-    const task = await Task.findByPk(taskId, {
-      include: [
-        {
-          association: 'assignee',
-          attributes: ['id', 'name', 'email'],
-        },
-        {
-          association: 'creator',
-          attributes: ['id', 'name', 'email'],
-        },
-        {
-          association: 'project',
-        },
-      ],
-    });
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return res.status(400).json({ message: 'Invalid task ID' });
+    }
+
+    const task = await Task.findById(taskId)
+      .populate('assignedTo', 'id name email')
+      .populate('createdBy', 'id name email')
+      .populate('projectId', 'id name')
+      .lean();
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    res.status(200).json({ task });
+    res.status(200).json({ task: { ...task, id: task._id.toString() } });
   } catch (error) {
     next(error);
   }
@@ -110,34 +105,43 @@ export const updateTask = async (req, res, next) => {
     const { taskId } = req.params;
     const { title, description, status, priority, assignedTo, dueDate } = req.body;
 
-    const task = await Task.findByPk(taskId);
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return res.status(400).json({ message: 'Invalid task ID' });
+    }
+
+    const task = await Task.findById(taskId);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    const project = await Project.findByPk(task.projectId);
+    const project = await Project.findById(task.projectId);
     
     // Check authorization
     const isProjectMember = await ProjectMember.findOne({
-      where: { projectId: task.projectId, userId: req.user.id },
+      projectId: task.projectId, 
+      userId: req.user.id,
     });
 
-    if (project.adminId !== req.user.id && !isProjectMember && task.createdBy !== req.user.id) {
+    if (project.adminId.toString() !== req.user.id && !isProjectMember && task.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    await task.update({
-      title,
-      description,
-      status,
-      priority,
-      assignedTo,
-      dueDate,
-    });
+    const updatedTask = await Task.findByIdAndUpdate(
+      taskId,
+      {
+        title,
+        description,
+        status,
+        priority,
+        assignedTo,
+        dueDate,
+      },
+      { new: true }
+    );
 
     res.status(200).json({
       message: 'Task updated successfully',
-      task,
+      task: updatedTask,
     });
   } catch (error) {
     next(error);
@@ -148,18 +152,22 @@ export const deleteTask = async (req, res, next) => {
   try {
     const { taskId } = req.params;
 
-    const task = await Task.findByPk(taskId);
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      return res.status(400).json({ message: 'Invalid task ID' });
+    }
+
+    const task = await Task.findById(taskId);
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    const project = await Project.findByPk(task.projectId);
+    const project = await Project.findById(task.projectId);
     
-    if (project.adminId !== req.user.id && task.createdBy !== req.user.id) {
+    if (project.adminId.toString() !== req.user.id && task.createdBy.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    await task.destroy();
+    await Task.deleteOne({ _id: taskId });
 
     res.status(200).json({ message: 'Task deleted successfully' });
   } catch (error) {
@@ -171,25 +179,23 @@ export const getTaskStats = async (req, res, next) => {
   try {
     const { projectId } = req.params;
 
-    const stats = await Task.findAll({
-      where: { projectId },
-      attributes: [
-        'status',
-        [require('sequelize').fn('COUNT', require('sequelize').col('id')), 'count'],
-      ],
-      group: ['status'],
-      raw: true,
-    });
+    if (!mongoose.Types.ObjectId.isValid(projectId)) {
+      return res.status(400).json({ message: 'Invalid project ID' });
+    }
+
+    const stats = await Task.aggregate([
+      { $match: { projectId: new mongoose.Types.ObjectId(projectId) } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
 
     const formattedStats = {
-      todo: 0,
-      in_progress: 0,
+      pending: 0,
+      'in-progress': 0,
       completed: 0,
-      overdue: 0,
     };
 
     stats.forEach(stat => {
-      formattedStats[stat.status] = parseInt(stat.count);
+      formattedStats[stat._id] = stat.count;
     });
 
     res.status(200).json(formattedStats);

@@ -1,50 +1,30 @@
-import { DataTypes } from 'sequelize';
-import sequelize from '../config/database.js';
+import mongoose from 'mongoose';
 
-const Project = sequelize.define('Project', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true,
-  },
-  name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    validate: {
-      notEmpty: true,
+const projectSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    description: {
+      type: String,
+    },
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    status: {
+      type: String,
+      default: 'active',
+      enum: ['active', 'completed', 'archived'],
     },
   },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  adminId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    references: {
-      model: 'users',
-      key: 'id',
-    },
-  },
-  status: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: 'active',
-    validate: {
-      isIn: [['active', 'completed', 'archived']],
-    },
-  },
-  createdAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-  updatedAt: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
-}, {
-  tableName: 'projects',
-  timestamps: true,
-});
+  {
+    timestamps: true,
+  }
+);
+
+const Project = mongoose.model('Project', projectSchema);
 
 export default Project;

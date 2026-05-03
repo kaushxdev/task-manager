@@ -4,6 +4,7 @@ import {
   getProjects,
   getProjectById,
   updateProject,
+  deleteProject,
   addMember,
   removeMember,
 } from '../controllers/projectController.js';
@@ -16,6 +17,7 @@ router.post('/', authenticate, createProject);
 router.get('/', authenticate, getProjects);
 router.get('/:projectId', authenticate, getProjectById);
 router.put('/:projectId', authenticate, updateProject);
+router.delete('/:projectId', authenticate, deleteProject);
 router.post('/:projectId/members', authenticate, addMember);
 router.delete('/:projectId/members/:memberId', authenticate, removeMember);
 
